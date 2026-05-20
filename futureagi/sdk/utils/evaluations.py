@@ -162,6 +162,17 @@ def _run_eval(eval_template, inputs, model, user, workspace, eval_config=None):
 
     futureagi_eval = eval_type_id in FUTUREAGI_EVAL_TYPES
 
+    # --- Shared empty-input validation (must happen before cost
+    # deduction so an invalid request never charges). For custom evals
+    # the validator backfills missing required_keys with "" and may
+    # return a partial_input warning. For system evals it keeps the
+    # historical per-key strict behaviour.
+    from model_hub.utils.eval_input_validation import validate_eval_inputs
+
+    partial_input_warning, inputs = validate_eval_inputs(
+        eval_template, dict(inputs) if inputs else {}, mapped_keys=(inputs or {}).keys()
+    )
+
     # --- Ground Truth Injection (caller-side, before engine call) ---
     gt_inputs = dict(inputs) if inputs else {}
     try:
@@ -251,14 +262,19 @@ def _run_eval(eval_template, inputs, model, user, workspace, eval_config=None):
         "value": result.value,
     }
 
+    output_payload = {
+        "output": eval_result.get("value", ""),
+        "reason": eval_result.get("reason", ""),
+    }
+    if partial_input_warning:
+        output_payload["warnings"] = [partial_input_warning]
+        eval_result["warnings"] = [partial_input_warning]
+
     config_dict = json.loads(api_call_log_row.config)
     config_dict.update(
         {
             "input": eval_result.get("data", {}),
-            "output": {
-                "output": eval_result.get("value", ""),
-                "reason": eval_result.get("reason", ""),
-            },
+            "output": output_payload,
         }
     )
     api_call_log_row.config = json.dumps(config_dict)

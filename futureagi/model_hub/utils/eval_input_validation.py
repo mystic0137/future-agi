@@ -1,20 +1,7 @@
 """Shared input-validation rules for eval execution.
 
-A single source of truth for "what counts as empty" and "when does an eval
-refuse to run vs. attach a warning". Called from every entry point that
-runs an eval (dataset, playground, tracing eval tasks, simulation, SDK)
-so behavior stays consistent regardless of how the eval was invoked.
-
-The rules:
-  - System evals (``config.custom_eval`` false): per-key strict — any
-    required/optional key whose value is empty raises a per-key error.
-  - User-built custom evals (``config.custom_eval`` true): at least one
-    mapped variable must have a non-empty value. If none do, raise. If
-    some mapped variables are empty but at least one has a value, return
-    a partial_input warning payload that callers attach to the eval
-    result so the operator can spot rows whose result may be unreliable.
-
-See ``docs/superpowers/specs/2026-05-18-eval-optional-inputs-design.md``.
+See ``docs/superpowers/specs/2026-05-18-eval-optional-inputs-design.md``
+for the full rationale and rules matrix.
 """
 
 from __future__ import annotations
@@ -83,10 +70,21 @@ def validate_eval_inputs(
     else:
         keys_to_check = declared_keys & _normalize_key_set(mapped_keys)
 
-    if not keys_to_check:
-        return None, values
-
     is_custom_eval = bool(config.get("custom_eval", False))
+
+    if not keys_to_check:
+        # A custom eval invoked with mapped_keys explicitly empty (or
+        # disjoint from declared_keys) means the operator wired nothing
+        # to the eval — bypassing here would let an unmapped run reach
+        # the engine. Trip the all-empty guard so the failure mode
+        # matches "every mapped input empty".
+        if is_custom_eval and mapped_keys is not None:
+            keys_label = ", ".join(f"'{k}'" for k in sorted(declared_keys))
+            raise ValueError(
+                f"No input received for any of {keys_label}. "
+                "Please check your inputs."
+            )
+        return None, values
 
     if is_custom_eval:
         empty = sorted(

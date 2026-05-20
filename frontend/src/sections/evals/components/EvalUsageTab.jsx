@@ -17,10 +17,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { DataTable, DataTablePagination } from "src/components/data-table";
 import FormSearchField from "src/components/FormSearchField/FormSearchField";
 import Iconify from "src/components/iconify";
+import CustomTooltip from "src/components/tooltip";
 import { useDebounce } from "src/hooks/use-debounce";
 import axios, { endpoints } from "src/utils/axios";
 import DateTimeRangePicker from "src/sections/projects/DateTimeRangePicker";
 import AddEvalsFeedbackDrawer from "src/sections/evals/EvalDetails/EvalsFeedback/AddEvalsFeedbackDrawer";
+
+import PartialInputWarningDetails, {
+  PARTIAL_INPUT_WARNING_TYPE,
+} from "src/sections/common/EvalsTasks/PartialInputWarningDetails";
 
 import { useEvalUsageChart, useEvalUsageLogs } from "../hooks/useEvalUsage";
 import { isEditableElement } from "src/utils/keyboardUtils";
@@ -145,9 +150,13 @@ const useColumns = () =>
         cell: ({ getValue, row: tableRow }) => {
           const v = getValue();
           const warnings = tableRow.original?.warnings || [];
-          const partial = warnings.find?.((w) => w?.type === "partial_input");
+          const partial = warnings.find?.(
+            (w) => w?.type === PARTIAL_INPUT_WARNING_TYPE,
+          );
           const partialBadge = partial ? (
-            <Tooltip
+            <CustomTooltip
+              show
+              arrow
               title={
                 partial.message ||
                 `Eval ran with some inputs empty: ${(partial.empty_keys || []).join(", ")}`
@@ -179,7 +188,7 @@ const useColumns = () =>
                   height="14px"
                 />
               </Box>
-            </Tooltip>
+            </CustomTooltip>
           ) : null;
 
           if (!v) {
@@ -766,97 +775,6 @@ const EvalUsageTab = ({
   );
 };
 
-const PartialInputWarningDetails = ({ warnings }) => {
-  const partial = warnings?.find((warning) => warning?.type === "partial_input");
-  if (!partial) return null;
-
-  const emptyKeys = partial.empty_keys || [];
-  const filledKeys = partial.filled_keys || [];
-
-  return (
-    <Box
-      sx={(theme) => ({
-        mt: 1.5,
-        p: 1.25,
-        borderRadius: "8px",
-        border: "1px solid",
-        borderColor: alpha(
-          theme.palette.warning.main,
-          theme.palette.mode === "dark" ? 0.4 : 0.3,
-        ),
-        bgcolor: alpha(
-          theme.palette.warning.main,
-          theme.palette.mode === "dark" ? 0.12 : 0.08,
-        ),
-      })}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
-        <Iconify
-          icon="material-symbols:warning-rounded"
-          width={14}
-          sx={(theme) => ({
-            color:
-              theme.palette.mode === "dark"
-                ? theme.palette.warning.light
-                : theme.palette.warning.dark,
-            flexShrink: 0,
-          })}
-        />
-        <Typography
-          variant="caption"
-          fontWeight={600}
-          sx={(theme) => ({
-            fontSize: "11px",
-            color:
-              theme.palette.mode === "dark"
-                ? theme.palette.warning.light
-                : theme.palette.warning.dark,
-          })}
-        >
-          Partial input warning
-        </Typography>
-      </Box>
-      <Typography
-        variant="body2"
-        sx={{ fontSize: "12px", color: "text.secondary", lineHeight: 1.5 }}
-      >
-        {partial.message ||
-          "Eval ran with some inputs empty. Result may be less reliable. Ignore if this is intentional."}
-      </Typography>
-      {emptyKeys.length > 0 && (
-        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
-          {emptyKeys.map((key) => (
-            <Chip
-              key={key}
-              label={`Missing: ${key}`}
-              size="small"
-              color="warning"
-              variant="outlined"
-              sx={{ fontSize: "10px", height: 18 }}
-            />
-          ))}
-        </Box>
-      )}
-      {filledKeys.length > 0 && (
-        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.75 }}>
-          {filledKeys.map((key) => (
-            <Chip
-              key={key}
-              label={`Present: ${key}`}
-              size="small"
-              variant="outlined"
-              sx={{ fontSize: "10px", height: 18 }}
-            />
-          ))}
-        </Box>
-      )}
-    </Box>
-  );
-};
-
-PartialInputWarningDetails.propTypes = {
-  warnings: PropTypes.arrayOf(PropTypes.object),
-};
 
 // ── Detail panel content with Formatted/JSON tabs + feedback ──
 const DetailPanelContent = ({

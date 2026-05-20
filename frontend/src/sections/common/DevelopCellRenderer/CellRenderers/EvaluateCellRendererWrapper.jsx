@@ -5,20 +5,18 @@ import { alpha } from "@mui/material/styles";
 import EvaluateCell from "../EvaluateCellRenderer/EvaluateCell";
 import CustomTooltip from "src/components/tooltip";
 import Iconify from "src/components/iconify";
+import { PARTIAL_INPUT_WARNING_TYPE } from "src/sections/common/EvalsTasks/PartialInputWarningDetails";
 import { tooltipSlotProp } from "./cellRendererHelper";
 
-// Render a small yellow warning chip on cells where the eval ran with some
-// inputs empty. Surfaced when the backend attaches a `partial_input`
-// warning (see eval_runner._run_evaluation for the producer side).
 const PartialInputWarningBadge = ({ warnings }) => {
-  const partial = warnings?.find((w) => w?.type === "partial_input");
+  const partial = warnings?.find((w) => w?.type === PARTIAL_INPUT_WARNING_TYPE);
   if (!partial) return null;
   const emptyKeys = partial.empty_keys || [];
   const message =
     partial.message ||
     `Eval ran with some inputs empty (${emptyKeys.join(", ")}). Result may be less reliable. Ignore if this is intentional.`;
   return (
-    <CustomTooltip title={message} arrow>
+    <CustomTooltip show title={message} arrow>
       <Box
         sx={(theme) => ({
           position: "absolute",

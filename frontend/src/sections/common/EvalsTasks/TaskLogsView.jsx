@@ -423,14 +423,11 @@ const WarningGroupCard = ({ group, defaultExpanded = false }) => {
         <Divider sx={{ borderColor: alpha("#000", 0) }} />
         <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
           <Typography
-            variant="caption"
-            fontWeight={600}
+            variant="overline"
             sx={{
               display: "block",
               mb: 0.5,
               fontSize: "10px",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
               color: "text.disabled",
             }}
           >
@@ -457,14 +454,11 @@ const WarningGroupCard = ({ group, defaultExpanded = false }) => {
           {filledKeys.length > 0 && (
             <>
               <Typography
-                variant="caption"
-                fontWeight={600}
+                variant="overline"
                 sx={{
                   display: "block",
                   mb: 0.5,
                   fontSize: "10px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
                   color: "text.disabled",
                 }}
               >
@@ -530,9 +524,16 @@ const TaskLogsView = ({ evalTaskId, taskStatus }) => {
     () => enrichErrorGroups(data?.error_groups || []),
     [data?.error_groups],
   );
-  const warningGroups = data?.warning_groups || [];
-  const errorGroupsTruncated = data?.error_groups_truncated ?? false;
-  const warningGroupsTruncated = data?.warning_groups_truncated ?? false;
+  // Some response paths (older DRF camelCase middleware) emit camelCase;
+  // current path is snake_case — accept either so the panel doesn't
+  // silently render empty if a stale renderer hits a new backend (or
+  // vice versa).
+  const warningGroups =
+    data?.warning_groups || data?.warningGroups || [];
+  const errorGroupsTruncated =
+    data?.error_groups_truncated ?? data?.errorGroupsTruncated ?? false;
+  const warningGroupsTruncated =
+    data?.warning_groups_truncated ?? data?.warningGroupsTruncated ?? false;
 
   if (isLoading) {
     return (
@@ -572,7 +573,7 @@ const TaskLogsView = ({ evalTaskId, taskStatus }) => {
   const {
     success_count: successCount = 0,
     errors_count: errorsCount = 0,
-    warnings_count: warningsCount = 0,
+    warnings_count: warningsCount = data?.warningsCount ?? 0,
     total_count: totalCount = 0,
     start_time: startTime,
     end_time: endTime,

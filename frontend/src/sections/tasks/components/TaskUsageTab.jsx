@@ -25,6 +25,9 @@ import { useTaskUsageChart, useTaskUsageLogs } from "../hooks/useTaskUsage";
 import UsageChart from "src/sections/evals/components/UsageChart";
 import { JsonValueTree } from "src/sections/evals/components/DatasetTestMode";
 import { classifyTaskError } from "src/sections/common/EvalsTasks/classifyTaskError";
+import PartialInputWarningDetails, {
+  PARTIAL_INPUT_WARNING_TYPE,
+} from "src/sections/common/EvalsTasks/PartialInputWarningDetails";
 import { isEditableElement } from "src/utils/keyboardUtils";
 
 // ── Inline stat ──
@@ -156,7 +159,7 @@ const useColumns = () =>
           const isError = v === "Error";
           const warnings = row.original.warnings || [];
           const partialWarning = warnings.find(
-            (w) => w?.type === "partial_input",
+            (w) => w?.type === PARTIAL_INPUT_WARNING_TYPE,
           );
           return (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -587,84 +590,6 @@ ErrorDetails.propTypes = {
   rawError: PropTypes.string,
 };
 
-const PartialInputWarningDetails = ({ warnings }) => {
-  const partial = warnings?.find((warning) => warning?.type === "partial_input");
-  if (!partial) return null;
-
-  const emptyKeys = partial.empty_keys || [];
-  const filledKeys = partial.filled_keys || [];
-
-  return (
-    <Box
-      sx={(t) => ({
-        mt: 1.5,
-        p: 1.25,
-        borderRadius: "8px",
-        border: "1px solid",
-        borderColor: alpha(t.palette.warning.main, 0.3),
-        bgcolor: alpha(
-          t.palette.warning.main,
-          t.palette.mode === "dark" ? 0.1 : 0.05,
-        ),
-      })}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
-        <Iconify
-          icon="solar:danger-triangle-bold"
-          width={14}
-          sx={{ color: "warning.main", flexShrink: 0 }}
-        />
-        <Typography
-          variant="caption"
-          fontWeight={600}
-          sx={(t) => ({
-            fontSize: "11px",
-            color:
-              t.palette.mode === "dark"
-                ? t.palette.warning.light
-                : t.palette.warning.dark,
-          })}
-        >
-          Partial input warning
-        </Typography>
-      </Box>
-      <Typography
-        variant="body2"
-        sx={{ fontSize: "12px", color: "text.secondary", lineHeight: 1.5 }}
-      >
-        {partial.message ||
-          "Eval ran with some inputs empty. Result may be less reliable. Ignore if this is intentional."}
-      </Typography>
-      {emptyKeys.length > 0 && (
-        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
-          {emptyKeys.map((key) => (
-            <Chip
-              key={key}
-              label={`Missing: ${key}`}
-              size="small"
-              color="warning"
-              variant="outlined"
-              sx={{ fontSize: "10px", height: 18 }}
-            />
-          ))}
-        </Box>
-      )}
-      {filledKeys.length > 0 && (
-        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.75 }}>
-          {filledKeys.map((key) => (
-            <Chip
-              key={key}
-              label={`Present: ${key}`}
-              size="small"
-              variant="outlined"
-              sx={{ fontSize: "10px", height: 18 }}
-            />
-          ))}
-        </Box>
-      )}
-    </Box>
-  );
-};
 
 PartialInputWarningDetails.propTypes = {
   warnings: PropTypes.arrayOf(PropTypes.object),

@@ -74,6 +74,28 @@ def _walk_dotted_path(root, path):
 _MISSING = object()
 
 
+def _build_apicall_output(result, partial_input_warning):
+    """Build the ``APICallLog.config.output`` payload for an eval success.
+
+    Bundles ``partial_input_warning`` into the same payload so the single
+    save below carries both the result and the warning — avoids the
+    earlier double-save (which silently dropped the warning if the
+    second save raised).
+    """
+    payload = {"output": result.value, "reason": result.reason}
+    if partial_input_warning:
+        payload["warnings"] = [partial_input_warning]
+    return payload
+
+
+def _attach_warning_to_metadata(response, output_metadata, partial_input_warning):
+    """Mirror a partial-input warning onto the response and EvalLogger metadata."""
+    if not partial_input_warning:
+        return
+    response["warnings"] = [partial_input_warning]
+    output_metadata["warnings"] = [partial_input_warning]
+
+
 def _resolve_attr(span_attrs: dict, candidate: str):
     """Literal lookup → dotted walk → JSON-parsed parent walk on miss.
 
@@ -1210,12 +1232,14 @@ def _execute_evaluation(
             )
         )
 
-        # Update cost log
+        # Build the output payload up front so the partial-input warning
+        # rides on the single save below — avoids losing the warning if a
+        # follow-up save were to fail (see _build_apicall_output).
         config_dict = json.loads(api_call_log_row.config)
         config_dict.update(
             {
                 "input": result.data,
-                "output": {"output": result.value, "reason": result.reason},
+                "output": _build_apicall_output(result, partial_input_warning),
             }
         )
         api_call_log_row.config = json.dumps(config_dict)
@@ -1247,24 +1271,8 @@ def _execute_evaluation(
             "duration": result.duration,
         }
 
-        # Attach partial-input warning so the eval task logs / usage views
-        # can surface the ⚠ badge alongside the eval result.
         _output_metadata = {**metadata}
-        if partial_input_warning:
-            response["warnings"] = [partial_input_warning]
-            _output_metadata["warnings"] = [partial_input_warning]
-            # Mirror onto the API call log so EvalUsageStatsView (which
-            # reads APICallLog.config.output) can also render the badge.
-            try:
-                _cfg = json.loads(api_call_log_row.config)
-                _out = _cfg.get("output") or {}
-                if isinstance(_out, dict):
-                    _out["warnings"] = [partial_input_warning]
-                    _cfg["output"] = _out
-                    api_call_log_row.config = json.dumps(_cfg)
-                    api_call_log_row.save(update_fields=["config"])
-            except Exception:
-                pass
+        _attach_warning_to_metadata(response, _output_metadata, partial_input_warning)
 
         logger_kwargs = {
             "trace": observation_span.trace,
@@ -2480,7 +2488,7 @@ def _execute_evaluation_for_trace(
         config_dict.update(
             {
                 "input": result.data,
-                "output": {"output": result.value, "reason": result.reason},
+                "output": _build_apicall_output(result, partial_input_warning),
             }
         )
         api_call_log_row.config = json.dumps(config_dict)
@@ -2511,19 +2519,7 @@ def _execute_evaluation_for_trace(
             "duration": result.duration,
         }
         _output_metadata = {**metadata}
-        if partial_input_warning:
-            response["warnings"] = [partial_input_warning]
-            _output_metadata["warnings"] = [partial_input_warning]
-            try:
-                _cfg = json.loads(api_call_log_row.config)
-                _out = _cfg.get("output") or {}
-                if isinstance(_out, dict):
-                    _out["warnings"] = [partial_input_warning]
-                    _cfg["output"] = _out
-                    api_call_log_row.config = json.dumps(_cfg)
-                    api_call_log_row.save(update_fields=["config"])
-            except Exception:
-                pass
+        _attach_warning_to_metadata(response, _output_metadata, partial_input_warning)
         logger_kwargs = {
             "target_type": EvalTargetType.TRACE.value,
             "trace": trace,
@@ -2717,7 +2713,7 @@ def _execute_evaluation_for_session(
         config_dict.update(
             {
                 "input": result.data,
-                "output": {"output": result.value, "reason": result.reason},
+                "output": _build_apicall_output(result, partial_input_warning),
             }
         )
         api_call_log_row.config = json.dumps(config_dict)
@@ -2748,19 +2744,7 @@ def _execute_evaluation_for_session(
             "duration": result.duration,
         }
         _output_metadata = {**metadata}
-        if partial_input_warning:
-            response["warnings"] = [partial_input_warning]
-            _output_metadata["warnings"] = [partial_input_warning]
-            try:
-                _cfg = json.loads(api_call_log_row.config)
-                _out = _cfg.get("output") or {}
-                if isinstance(_out, dict):
-                    _out["warnings"] = [partial_input_warning]
-                    _cfg["output"] = _out
-                    api_call_log_row.config = json.dumps(_cfg)
-                    api_call_log_row.save(update_fields=["config"])
-            except Exception:
-                pass
+        _attach_warning_to_metadata(response, _output_metadata, partial_input_warning)
         logger_kwargs = {
             "target_type": EvalTargetType.SESSION.value,
             "trace": None,
