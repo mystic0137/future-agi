@@ -10,7 +10,11 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from accounts.utils import get_request_organization
-from integrations.models import ConnectionStatus, IntegrationConnection
+from integrations.models import (
+    ACTION_ONLY_PLATFORMS,
+    ConnectionStatus,
+    IntegrationConnection,
+)
 from integrations.serializers.integration_connection import (
     IntegrationConnectionCreateSerializer,
     IntegrationConnectionDetailSerializer,
@@ -212,10 +216,56 @@ class IntegrationConnectionViewSet(BaseModelViewSetMixinWithUserOrg, ModelViewSe
                 backfill_from = data.get("backfill_from_date")
                 backfill_completed = False
 
-            # 5. Create connection
+            organization = (
+                getattr(request, "organization", None) or request.user.organization
+            )
+
+            # 5. Action-only platforms (Linear, etc.) use org-wide credentials
+            # with no per-project mapping, so the partial unique constraint
+            # restricts them to one live row per (org, workspace, platform).
+            # Treat a re-add as a credential rotation: update the existing
+            # live row in place instead of letting IntegrityError fire.
+            if data["platform"] in ACTION_ONLY_PLATFORMS:
+                existing = (
+                    IntegrationConnection.objects.filter(
+                        organization=organization,
+                        workspace=workspace,
+                        platform=data["platform"],
+                        deleted=False,
+                    )
+                    .order_by("-created_at")
+                    .first()
+                )
+                if existing is not None:
+                    existing.encrypted_credentials = encrypted
+                    existing.display_name = (
+                        data.get("display_name") or ext_project_name
+                    )
+                    existing.status = ConnectionStatus.ACTIVE
+                    existing.status_message = ""
+                    existing.save(
+                        update_fields=[
+                            "encrypted_credentials",
+                            "display_name",
+                            "status",
+                            "status_message",
+                            "updated_at",
+                        ]
+                    )
+                    logger.info(
+                        "action_only_credentials_rotated",
+                        connection_id=str(existing.id),
+                        platform=existing.platform,
+                        organization_id=str(organization.id),
+                        workspace_id=str(workspace.id),
+                        rotated_by=str(request.user.id),
+                    )
+                    result = IntegrationConnectionDetailSerializer(existing).data
+                    return self._gm.success_response(result)
+
+            # 5b. Create connection (fresh, or any non-action-only platform)
             connection = IntegrationConnection.objects.create(
-                organization=getattr(request, "organization", None)
-                or request.user.organization,
+                organization=organization,
                 workspace=workspace,
                 created_by=request.user,
                 platform=data["platform"],
@@ -250,6 +300,12 @@ class IntegrationConnectionViewSet(BaseModelViewSetMixinWithUserOrg, ModelViewSe
             return self._gm.success_response(result, status=status.HTTP_201_CREATED)
 
         except IntegrityError:
+            platform = (request.data or {}).get("platform")
+            if platform in ACTION_ONLY_PLATFORMS:
+                return self._gm.bad_request(
+                    f"{platform.title()} is already connected for this workspace. "
+                    "Edit the existing connection in Settings > Integrations to rotate keys."
+                )
             return self._gm.bad_request(
                 "A connection to this project already exists in this workspace."
             )

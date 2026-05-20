@@ -832,11 +832,12 @@ function LinearTeamPicker({ open, onClose, clusterId, traceId }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const { enqueueSnackbar } = useSnackbar();
+  const { user } = useAuthContext();
   const {
     data: linearData,
     isLoading: teamsLoading,
     isError: teamsError,
-  } = useLinearTeams({ enabled: open });
+  } = useLinearTeams(user?.organization?.id, { enabled: open });
   const createIssue = useCreateLinearIssue();
   const teams = linearData?.teams ?? [];
 
@@ -1079,11 +1080,12 @@ function Integrations({
   externalIssueId,
 }) {
   const navigate = useNavigate();
+  const { user } = useAuthContext();
   const {
     data: linearData,
     isLoading: linearLoading,
     isError: linearError,
-  } = useLinearTeams();
+  } = useLinearTeams(user?.organization?.id);
   const linearConnected = linearData?.connected === true;
   const [teamPickerOpen, setTeamPickerOpen] = useState(false);
 

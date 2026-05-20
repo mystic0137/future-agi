@@ -15,7 +15,7 @@ const KEYS = {
     clusterId,
     traceId,
   ],
-  linearTeams: ["errorFeed", "linearTeams"],
+  linearTeams: (orgId) => ["errorFeed", "linearTeams", orgId ?? null],
   projects: ["errorFeed", "projects"],
 };
 
@@ -216,13 +216,19 @@ export const useRunDeepAnalysis = () => {
 /**
  * Fetch Linear teams for the team picker dropdown.
  * Returns { connected, teams } — connected=false if no Linear integration.
+ *
+ * The query key is scoped by organization so switching workspaces doesn't
+ * serve the previous workspace's connection state. Connect/update/delete
+ * from the integrations page cross-invalidates this key — see
+ * `invalidateCrossFeatureIntegrationCaches` in `api/integrations`.
  */
-export const useLinearTeams = (options = {}) => {
+export const useLinearTeams = (orgId, options = {}) => {
   return useQuery({
     ...options,
-    queryKey: KEYS.linearTeams,
+    queryKey: KEYS.linearTeams(orgId),
     queryFn: () => axios.get(endpoints.errorFeed.linearTeams),
     select: (res) => res?.data?.result,
+    enabled: !!orgId && (options.enabled ?? true),
     staleTime: 30 * 1000,
   });
 };
