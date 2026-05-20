@@ -263,7 +263,19 @@ class EvalVersionItem(BaseModel):
     model: str = ""
     config_snapshot: dict = Field(default_factory=dict)
     created_by_name: str = ""
+    created_by_email: str = ""
     created_at: str = ""
+    # Column-level snapshot fields (mirror _VERSION_SNAPSHOT_FIELDS).
+    prompt_messages: list = Field(default_factory=list)
+    output_type_normalized: str | None = None
+    pass_threshold: float | None = None
+    choice_scores: dict | None = None
+    error_localizer_enabled: bool = False
+    eval_tags: list = Field(default_factory=list)
+    # Derived from config_snapshot for FE label rendering.
+    choices: list = Field(default_factory=list)
+    choices_map: dict = Field(default_factory=dict)
+    multi_choice: bool = False
 
 
 class EvalVersionListResponse(BaseModel):

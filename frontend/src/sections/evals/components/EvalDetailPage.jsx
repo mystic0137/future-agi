@@ -56,6 +56,7 @@ import EvalUsageTab from "./EvalUsageTab";
 import VersionBadge from "./VersionBadge";
 import { EVAL_TAGS } from "../constant";
 import { FAGI_MODEL_VALUES } from "./ModelSelector";
+import { buildDataInjection } from "src/sections/common/EvalPicker/evalPickerConfigUtils";
 
 const extract_selected_tools = (tools) => {
   if (Array.isArray(tools)) return tools;
@@ -691,11 +692,7 @@ const EvalDetailPage = () => {
       return;
     }
     try {
-      const dataInjection =
-        contextOptions.length === 0 ||
-        (contextOptions.length === 1 && contextOptions[0] === "variables_only")
-          ? { variables_only: true }
-          : { full_row: true };
+      const dataInjection = buildDataInjection(contextOptions);
       const summary =
         summaryType === "custom"
           ? { type: "custom", custom: "" }
@@ -723,10 +720,9 @@ const EvalDetailPage = () => {
         error_localizer_enabled: errorLocalizerEnabled,
         template_format: templateFormat,
         messages: evalType === "llm" ? messages : undefined,
-        few_shot_examples:
-          evalType === "llm" && fewShotExamples.length > 0
-            ? fewShotExamples
-            : undefined,
+        // Send [] for LLM evals so the BE can persist a user-cleared list.
+        // Omitting on empty would leave the previous examples in place.
+        few_shot_examples: evalType === "llm" ? fewShotExamples : undefined,
       };
       await updateEval.mutateAsync(payload);
 
@@ -756,10 +752,7 @@ const EvalDetailPage = () => {
         error_localizer_enabled: errorLocalizerEnabled,
         template_format: templateFormat,
         messages: evalType === "llm" ? messages : undefined,
-        few_shot_examples:
-          evalType === "llm" && fewShotExamples.length > 0
-            ? fewShotExamples
-            : undefined,
+        few_shot_examples: evalType === "llm" ? fewShotExamples : undefined,
       };
       const newVersion = await createVersion.mutateAsync({
         config_snapshot: configSnapshot,
@@ -881,12 +874,7 @@ const EvalDetailPage = () => {
       // Save current config to the template so the eval runner uses the latest
       // state.
       if (!isSystemEval && !isComposite) {
-        const dataInjection =
-          contextOptions.length === 0 ||
-          (contextOptions.length === 1 &&
-            contextOptions[0] === "variables_only")
-            ? { variables_only: true }
-            : { full_row: true };
+        const dataInjection = buildDataInjection(contextOptions);
         const summary =
           summaryType === "custom"
             ? { type: "custom", custom: "" }
@@ -911,10 +899,7 @@ const EvalDetailPage = () => {
           error_localizer_enabled: errorLocalizerEnabled,
           template_format: templateFormat,
           messages: evalType === "llm" ? messages : undefined,
-          few_shot_examples:
-            evalType === "llm" && fewShotExamples.length > 0
-              ? fewShotExamples
-              : undefined,
+          few_shot_examples: evalType === "llm" ? fewShotExamples : undefined,
         });
       }
       // Composite evals: save current children/weights/aggregation config
