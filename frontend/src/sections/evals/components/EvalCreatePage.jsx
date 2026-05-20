@@ -981,7 +981,7 @@ const EvalCreatePage = () => {
                       >
                         <Typography variant="caption">0</Typography>
                         <Slider
-                          value={passThreshold * 100}
+                          value={Math.round(passThreshold * 100)}
                           onChange={(_, val) => setPassThreshold(val / 100)}
                           min={0}
                           max={100}

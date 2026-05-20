@@ -266,7 +266,7 @@ const OutputTypeConfig = ({
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, px: 1 }}>
               <Typography variant="caption">0</Typography>
               <Slider
-                value={passThreshold * 100}
+                value={Math.round(passThreshold * 100)}
                 onChange={(_, val) => onPassThresholdChange(val / 100)}
                 min={0}
                 max={100}

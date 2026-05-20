@@ -994,7 +994,7 @@ const EvalPickerCreateNew = ({ onBack, onSave }) => {
                     >
                       <Typography variant="caption">0</Typography>
                       <Slider
-                        value={passThreshold * 100}
+                        value={Math.round(passThreshold * 100)}
                         onChange={(_, val) =>
                           handlePassThresholdChange(val / 100)
                         }
