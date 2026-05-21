@@ -1378,9 +1378,14 @@ export default function ErrorMetadataPanel({ error }) {
     selectedTraceId,
   );
   const sidebarPending = isSidebarLoading && !sidebar;
-  // Effective trace id (what the backend actually used) — hand to the
-  // deep-analysis button so Re-run hits the same trace.
-  const effectiveTraceId = sidebar?.aiMetadata?.traceId ?? null;
+  // OverviewTab keys its deep-analysis query off `selectedTraceId` (with a
+  // `representativeTraces[0]` fallback inside the tab). The button has to
+  // use the same source or the two end up reading different cache entries:
+  // OverviewTab shows the done content, button keeps polling a different
+  // trace and stays stuck on loading. Prefer the store; fall back to the
+  // sidebar's resolved trace only while the store hasn't been backfilled.
+  const effectiveTraceId =
+    selectedTraceId ?? sidebar?.aiMetadata?.traceId ?? null;
 
   if (!error) return null;
 
