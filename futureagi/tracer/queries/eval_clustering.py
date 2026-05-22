@@ -10,6 +10,7 @@ within the same eval, never across different evals.
 
 import hashlib
 import re
+from datetime import timedelta
 from typing import List, Optional, Tuple
 
 import structlog
@@ -33,19 +34,30 @@ logger = structlog.get_logger(__name__)
 CENTROIDS_TABLE = "cluster_centroids"  # shared with scanner — different family values
 COSINE_THRESHOLD = 0.45
 
+# Only cluster recent eval failures — old results aren't actionable and
+# bound the per-run work unit.
+_CLUSTER_WINDOW_DAYS = 60
+
 
 # ---------------------------------------------------------------------------
 # Fetch unclustered failing eval results
 # ---------------------------------------------------------------------------
 
 
-def get_unclustered_eval_results(project_id: str) -> List[ClusterableEvalResult]:
+def get_unclustered_eval_results(
+    project_id: str, limit: Optional[int] = None
+) -> List[ClusterableEvalResult]:
     """
     Fetch EvalLogger rows that failed, have an explanation, and haven't
     been assigned to a cluster yet.
 
     "Failed" = output_bool is False OR output_float < 1.0.
     Skips rows with null eval_explanation (deterministic evals without reasoning).
+    Only the last _CLUSTER_WINDOW_DAYS of results are considered.
+
+    ``limit`` bounds the returned batch (oldest-first). The caller drains a
+    large backlog over successive bounded runs so a single clustering
+    activity can never grow unbounded and time out.
     """
     # Already-clustered eval_logger IDs
     clustered_ids = set(
@@ -65,6 +77,7 @@ def get_unclustered_eval_results(project_id: str) -> List[ClusterableEvalResult]
             trace__project_id=project_id,
             target_type="span",
             custom_eval_config__isnull=False,
+            created_at__gte=timezone.now() - timedelta(days=_CLUSTER_WINDOW_DAYS),
         )
         .filter(
             Q(output_bool=False) | Q(output_float__lt=1.0),
@@ -75,8 +88,10 @@ def get_unclustered_eval_results(project_id: str) -> List[ClusterableEvalResult]
         .order_by("created_at")
     )
 
-    results = []
-    for ev in evals:
+    results: List[ClusterableEvalResult] = []
+    # .iterator() so a huge backlog isn't all loaded into memory just to
+    # stop early once `limit` unclustered rows have been collected.
+    for ev in evals.iterator(chunk_size=2000):
         if ev.id in clustered_ids:
             continue
         results.append(
@@ -90,6 +105,8 @@ def get_unclustered_eval_results(project_id: str) -> List[ClusterableEvalResult]
                 score=ev.output_float,
             )
         )
+        if limit is not None and len(results) >= limit:
+            break
 
     return results
 
@@ -99,13 +116,48 @@ def get_unclustered_eval_results(project_id: str) -> List[ClusterableEvalResult]
 # ---------------------------------------------------------------------------
 
 
+_EMBED_BATCH_SIZE = 64
+
+
 def embed_texts(texts: List[str]) -> List[List[float]]:
-    """Embed a batch of texts using the model serving client."""
-    text_embed = model_manager.text_model
-    embeddings = []
-    for text in texts:
-        embedding = text_embed(text)
-        embeddings.append(embedding)
+    """Embed texts via the serving client in bounded batches.
+
+    Chunked rather than per-row or all-at-once: one request carries up to
+    _EMBED_BATCH_SIZE texts (the single-worker serving process does one
+    batched forward pass instead of N round-trips), and a failed chunk only
+    costs re-embedding that chunk on the next idempotent clustering sweep —
+    bounded blast radius, which is the fault-isolation the old per-row
+    enqueue was reaching for, without the fan-out that overran serving.
+    """
+    if not texts:
+        return []
+
+    try:
+        client = model_manager.serving_client
+    except Exception:
+        client = None
+
+    if client is None:
+        # Serving unavailable — preserve the previous per-item behaviour.
+        text_embed = model_manager.text_model
+        return [text_embed(t) for t in texts]
+
+    embeddings: List[List[float]] = []
+    for start in range(0, len(texts), _EMBED_BATCH_SIZE):
+        chunk = texts[start : start + _EMBED_BATCH_SIZE]
+        try:
+            embeddings.extend(client.embed_text_batch(chunk))
+        except Exception:
+            # One bad chunk must not fail the whole project sweep — fall
+            # back to per-item for this chunk only.
+            logger.warning(
+                "embed_batch_fallback_per_item",
+                chunk_start=start,
+                chunk_size=len(chunk),
+                exc_info=True,
+            )
+            text_embed = model_manager.text_model
+            embeddings.extend(text_embed(t) for t in chunk)
     return embeddings
 
 
