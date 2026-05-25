@@ -427,7 +427,7 @@ def run_eval_func(
                 billing_config = BillingConfig.get()
             eval_cost = getattr(eval_instance, "cost", {})
             llm_cost = eval_cost.get("total_cost", 0)
-            per_run_fee = billing_config.get_eval_per_run_fee()
+            per_run_fee = billing_config.get_eval_per_run_fee() if billing_config else 0
             actual_cost = llm_cost + per_run_fee
 
             # Fallback cost for comparison logging

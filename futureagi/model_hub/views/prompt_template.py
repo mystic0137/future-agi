@@ -2565,23 +2565,24 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                 }
             )
             org = Organization.objects.get(id=organization_id)
+            api_call_log_row = None
             if log_and_deduct_cost_for_api_request is not None:
                 api_call_log_row = log_and_deduct_cost_for_api_request(
-                organization=org,
-                api_call_type=APICallTypeChoices.DATASET_EVALUATION.value,
-                source="prompt_template",
-                source_id=eval_template.id,
-                config=source_config,
-                workspace=evaluation.prompt_template.workspace,
-            )
-
-            if not api_call_log_row:
-                raise ValueError(
-                    "API call not allowed : Error validating the api call."
+                    organization=org,
+                    api_call_type=APICallTypeChoices.DATASET_EVALUATION.value,
+                    source="prompt_template",
+                    source_id=eval_template.id,
+                    config=source_config,
+                    workspace=evaluation.prompt_template.workspace,
                 )
 
-            if api_call_log_row.status != APICallStatusChoices.PROCESSING.value:
-                raise ValueError("API call not allowed : ", api_call_log_row.status)
+                if not api_call_log_row:
+                    raise ValueError(
+                        "API call not allowed : Error validating the api call."
+                    )
+
+                if api_call_log_row.status != APICallStatusChoices.PROCESSING.value:
+                    raise ValueError("API call not allowed : ", api_call_log_row.status)
             # Apply the shared empty-input rules so prompt-template evals
             # behave the same as dataset/playground/tracing/SDK paths.
             from model_hub.utils.eval_input_validation import (
@@ -3209,19 +3210,20 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                 return self._gm.bad_request(get_error_message("MISSING_STATEMENT"))
 
             config = {"input_tokens": (count_text_tokens(statement) if count_text_tokens else 0)}
+            call_log_row = None
             if log_and_deduct_cost_for_api_request is not None:
                 call_log_row = log_and_deduct_cost_for_api_request(
-                getattr(request, "organization", None) or request.user.organization,
-                APICallTypeChoices.PROMPT_BENCH.value,
-                config=config,
-                source="run_prompt_gen",
-                workspace=request.workspace,
-            )
-            if (
-                call_log_row is None
-                or call_log_row.status != APICallStatusChoices.PROCESSING.value
-            ):
-                return self._gm.bad_request(get_error_message("INSUFFICIENT_CREDITS"))
+                    getattr(request, "organization", None) or request.user.organization,
+                    APICallTypeChoices.PROMPT_BENCH.value,
+                    config=config,
+                    source="run_prompt_gen",
+                    workspace=request.workspace,
+                )
+                if (
+                    call_log_row is None
+                    or call_log_row.status != APICallStatusChoices.PROCESSING.value
+                ):
+                    return self._gm.bad_request(get_error_message("INSUFFICIENT_CREDITS"))
 
             # Dual-write: emit usage event for new billing system
             try:
@@ -3334,19 +3336,20 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                     existing_prompt + improvement_requirements
                 ) if count_text_tokens else 0)
             }
+            call_log_row = None
             if log_and_deduct_cost_for_api_request is not None:
                 call_log_row = log_and_deduct_cost_for_api_request(
-                getattr(request, "organization", None) or request.user.organization,
-                APICallTypeChoices.PROMPT_BENCH.value,
-                config=config,
-                source="run_prompt_improve",
-                workspace=request.workspace,
-            )
-            if (
-                call_log_row is None
-                or call_log_row.status != APICallStatusChoices.PROCESSING.value
-            ):
-                return self._gm.bad_request(get_error_message("INSUFFICIENT_CREDITS"))
+                    getattr(request, "organization", None) or request.user.organization,
+                    APICallTypeChoices.PROMPT_BENCH.value,
+                    config=config,
+                    source="run_prompt_improve",
+                    workspace=request.workspace,
+                )
+                if (
+                    call_log_row is None
+                    or call_log_row.status != APICallStatusChoices.PROCESSING.value
+                ):
+                    return self._gm.bad_request(get_error_message("INSUFFICIENT_CREDITS"))
 
             # Dual-write: emit usage event for new billing system
             try:

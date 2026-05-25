@@ -292,8 +292,6 @@ class GetAPICallLogDetailsView(APIView):
         try:
             if APICallLog is None:
                 return self._gm.success_response([])
-            if APICallLog is None:
-                return self._gm.success_response([])
             eval_template_id = request.query_params.get(
                 "eval_template_id", None
             ) or request.query_params.get("evalTemplateId", None)
@@ -4402,8 +4400,6 @@ class EvalUsageStatsView(APIView):
 
     def get(self, request, template_id, *args, **kwargs):
         try:
-            if APICallLog is None:
-                return self._gm.success_response([])
             if APICallLog is None:
                 return self._gm.success_response([])
             try:

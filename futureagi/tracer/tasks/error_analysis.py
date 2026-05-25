@@ -100,25 +100,25 @@ def analyze_single_trace(trace_id, task_id, ingest_embeddings: bool = True):
         # Log and deduct cost for the analysis upfront.
         if log_and_deduct_cost_for_api_request is not None:
             api_call_log_row = log_and_deduct_cost_for_api_request(
-            organization=organization,
-            api_call_type=APICallTypeChoices.TRACE_ERROR_ANALYSIS.value,
-            source="trace_error_analysis",
-            workspace=workspace,
-            source_id=str(trace_id),
-            config={
-                "trace_id": str(trace_id),
-                "project_id": str(trace.project.id),
-                "reference_id": str(trace.project.id),
-            },
-        )
-
-        if not api_call_log_row:
-            error_message = "Failed to create API call log for trace analysis."
-            logger.error(error_message)
-            Trace.objects.filter(id=trace_id).update(
-                error_analysis_status=TraceErrorAnalysisStatus.FAILED
+                organization=organization,
+                api_call_type=APICallTypeChoices.TRACE_ERROR_ANALYSIS.value,
+                source="trace_error_analysis",
+                workspace=workspace,
+                source_id=str(trace_id),
+                config={
+                    "trace_id": str(trace_id),
+                    "project_id": str(trace.project.id),
+                    "reference_id": str(trace.project.id),
+                },
             )
-            return {"success": False, "trace_id": trace_id, "error": error_message}
+
+            if not api_call_log_row:
+                error_message = "Failed to create API call log for trace analysis."
+                logger.error(error_message)
+                Trace.objects.filter(id=trace_id).update(
+                    error_analysis_status=TraceErrorAnalysisStatus.FAILED
+                )
+                return {"success": False, "trace_id": trace_id, "error": error_message}
 
         agent = TraceErrorAnalysisAgent(
             trace_id=str(trace_id),
@@ -143,8 +143,9 @@ def analyze_single_trace(trace_id, task_id, ingest_embeddings: bool = True):
             error_analysis_db.ingest_trace_error_embeddings(trace_id)
 
         # Mark the API call as successful
-        api_call_log_row.status = APICallStatusChoices.SUCCESS.value
-        api_call_log_row.save(update_fields=["status"])
+        if api_call_log_row:
+            api_call_log_row.status = APICallStatusChoices.SUCCESS.value
+            api_call_log_row.save(update_fields=["status"])
 
         # Dual-write: emit usage event for new billing system (cost-based)
         try:
@@ -168,26 +169,25 @@ def analyze_single_trace(trace_id, task_id, ingest_embeddings: bool = True):
             actual_cost = getattr(agent, "cost", {}).get("total_cost", 0)
             if not actual_cost and hasattr(agent, "llm"):
                 actual_cost = getattr(agent.llm, "cost", {}).get("total_cost", 0)
-            if BillingConfig is not None:
 
+            credits = 0
+            if BillingConfig is not None:
                 credits = BillingConfig.get().calculate_ai_credits(actual_cost)
 
             if emit is not None and UsageEvent is not None and BillingEventType is not None:
-
-
                 emit(
-                UsageEvent(
-                    org_id=str(organization.id),
-                    event_type=BillingEventType.TRACE_ERROR_ANALYSIS,
-                    amount=credits,
-                    properties={
-                        "source": "trace_error_analysis",
-                        "source_id": str(trace_id),
-                        "errors_found": error_count,
-                        "raw_cost_usd": str(actual_cost),
-                    },
+                    UsageEvent(
+                        org_id=str(organization.id),
+                        event_type=BillingEventType.TRACE_ERROR_ANALYSIS,
+                        amount=credits,
+                        properties={
+                            "source": "trace_error_analysis",
+                            "source_id": str(trace_id),
+                            "errors_found": error_count,
+                            "raw_cost_usd": str(actual_cost),
+                        },
+                    )
                 )
-            )
         except Exception:
             pass
 

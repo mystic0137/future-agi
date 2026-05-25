@@ -1094,11 +1094,12 @@ class EvaluationRunner:
                 except ImportError:
                     emit = None
 
+                billing_config = None
                 if BillingConfig is not None:
                     billing_config = BillingConfig.get()
                 eval_cost = getattr(eval_instance, "cost", {})
                 llm_cost = eval_cost.get("total_cost", 0)
-                per_run_fee = billing_config.get_eval_per_run_fee()
+                per_run_fee = billing_config.get_eval_per_run_fee() if billing_config else 0
                 actual_cost = llm_cost + per_run_fee
 
                 # Also compute fallback cost for comparison logging
@@ -1126,7 +1127,7 @@ class EvaluationRunner:
                     token_usage=getattr(eval_instance, "token_usage", {}),
                 )
 
-                credits = billing_config.calculate_ai_credits(actual_cost)
+                credits = billing_config.calculate_ai_credits(actual_cost) if billing_config else 0
                 emit_org_id = str(
                     self.organization_id
                     or (
