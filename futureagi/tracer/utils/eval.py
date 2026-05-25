@@ -24,10 +24,7 @@ from tracer.models.trace import Trace
 from tracer.models.trace_session import TraceSession
 from tracer.utils.helper import FieldConfig, get_default_trace_config
 from tracer.views.project import get_default_project_version_config
-try:
-    from ee.usage.models.usage import APICallStatusChoices
-except ImportError:
-    APICallStatusChoices = None
+from tfc.constants.api_calls import APICallStatusChoices
 try:
     from ee.usage.utils.usage_entries import log_and_deduct_cost_for_api_request
 except ImportError:
@@ -527,11 +524,13 @@ def _run_evaluation(
             check_usage = None
 
         org = observation_span.project.organization
-        usage_check = check_usage(str(org.id), api_call_type)
+        if check_usage is not None:
+            usage_check = check_usage(str(org.id), api_call_type)
         if not usage_check.allowed:
             raise ValueError(usage_check.reason or "Usage limit exceeded")
 
-        api_call_log_row = log_and_deduct_cost_for_api_request(
+        if log_and_deduct_cost_for_api_request is not None:
+            api_call_log_row = log_and_deduct_cost_for_api_request(
             organization=org,
             api_call_type=api_call_type,
             source="tracer" if not feedback_id else "feedback",
@@ -607,9 +606,14 @@ def _run_evaluation(
                 emit = None
 
             actual_cost = getattr(eval_instance, "cost", {}).get("total_cost", 0)
-            credits = BillingConfig.get().calculate_ai_credits(actual_cost)
+            if BillingConfig is not None:
 
-            emit(
+                credits = BillingConfig.get().calculate_ai_credits(actual_cost)
+
+            if emit is not None and UsageEvent is not None:
+
+
+                emit(
                 UsageEvent(
                     org_id=str(observation_span.project.organization_id),
                     event_type=api_call_type,
@@ -1177,7 +1181,8 @@ def _execute_evaluation(
             is_active=True,
         )
 
-    api_call_log_row = log_and_deduct_cost_for_api_request(
+    if log_and_deduct_cost_for_api_request is not None:
+        api_call_log_row = log_and_deduct_cost_for_api_request(
         organization=observation_span.project.organization,
         api_call_type=api_call_type,
         source="tracer" if not feedback_id else "feedback",
@@ -2426,7 +2431,8 @@ def _execute_evaluation_for_trace(
         source_config["feedback_id"] = str(feedback_id)
 
     api_call_type = _get_api_call_type(custom_eval_config.model)
-    api_call_log_row = log_and_deduct_cost_for_api_request(
+    if log_and_deduct_cost_for_api_request is not None:
+        api_call_log_row = log_and_deduct_cost_for_api_request(
         organization=trace.project.organization,
         api_call_type=api_call_type,
         source="tracer" if not feedback_id else "feedback",
@@ -2651,7 +2657,8 @@ def _execute_evaluation_for_session(
         source_config["feedback_id"] = str(feedback_id)
 
     api_call_type = _get_api_call_type(custom_eval_config.model)
-    api_call_log_row = log_and_deduct_cost_for_api_request(
+    if log_and_deduct_cost_for_api_request is not None:
+        api_call_log_row = log_and_deduct_cost_for_api_request(
         organization=trace_session.project.organization,
         api_call_type=api_call_type,
         source="tracer" if not feedback_id else "feedback",

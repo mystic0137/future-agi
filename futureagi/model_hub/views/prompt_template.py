@@ -159,14 +159,11 @@ def _safe_background_task(func, *args, **kwargs):
     return wrapped
 
 
+from tfc.constants.api_calls import APICallStatusChoices, APICallTypeChoices
+
 try:
-    from ee.usage.models.usage import APICallStatusChoices
+    from ee.usage.utils.usage_entries import count_text_tokens, log_and_deduct_cost_for_api_request
 except ImportError:
-    APICallStatusChoices = None
-try:
-    from ee.usage.utils.usage_entries import APICallTypeChoices, count_text_tokens, log_and_deduct_cost_for_api_request
-except ImportError:
-    APICallTypeChoices = None
     count_text_tokens = None
     log_and_deduct_cost_for_api_request = None
 
@@ -1912,7 +1909,8 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                         }
                         # print("token config is here:",token_config)
                         if organization:
-                            log_and_deduct_cost_for_api_request(
+                            if log_and_deduct_cost_for_api_request is not None:
+                                log_and_deduct_cost_for_api_request(
                                 organization,
                                 APICallTypeChoices.PROMPT_BENCH.value,
                                 config=token_config,
@@ -1933,7 +1931,10 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                                 except ImportError:
                                     emit = None
 
-                                emit(
+                                if emit is not None and UsageEvent is not None and BillingEventType is not None:
+
+
+                                    emit(
                                     UsageEvent(
                                         org_id=str(organization.id),
                                         event_type=APICallTypeChoices.PROMPT_BENCH.value,
@@ -2564,7 +2565,8 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                 }
             )
             org = Organization.objects.get(id=organization_id)
-            api_call_log_row = log_and_deduct_cost_for_api_request(
+            if log_and_deduct_cost_for_api_request is not None:
+                api_call_log_row = log_and_deduct_cost_for_api_request(
                 organization=org,
                 api_call_type=APICallTypeChoices.DATASET_EVALUATION.value,
                 source="prompt_template",
@@ -2650,7 +2652,10 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                 except ImportError:
                     emit = None
 
-                emit(
+                if emit is not None and UsageEvent is not None and BillingEventType is not None:
+
+
+                    emit(
                     UsageEvent(
                         org_id=str(org.id),
                         event_type=BillingEventType.EVAL_EXPLANATION,
@@ -3203,8 +3208,9 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
             if not statement:
                 return self._gm.bad_request(get_error_message("MISSING_STATEMENT"))
 
-            config = {"input_tokens": count_text_tokens(statement)}
-            call_log_row = log_and_deduct_cost_for_api_request(
+            config = {"input_tokens": (count_text_tokens(statement) if count_text_tokens else 0)}
+            if log_and_deduct_cost_for_api_request is not None:
+                call_log_row = log_and_deduct_cost_for_api_request(
                 getattr(request, "organization", None) or request.user.organization,
                 APICallTypeChoices.PROMPT_BENCH.value,
                 config=config,
@@ -3235,7 +3241,9 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                 _org = (
                     getattr(request, "organization", None) or request.user.organization
                 )
-                emit(
+                if emit is not None and UsageEvent is not None and BillingEventType is not None:
+
+                    emit(
                     UsageEvent(
                         org_id=str(_org.id),
                         event_type=BillingEventType.AI_PROMPT_CREATION,
@@ -3322,11 +3330,12 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                 )
 
             config = {
-                "input_tokens": count_text_tokens(
+                "input_tokens": (count_text_tokens(
                     existing_prompt + improvement_requirements
-                )
+                ) if count_text_tokens else 0)
             }
-            call_log_row = log_and_deduct_cost_for_api_request(
+            if log_and_deduct_cost_for_api_request is not None:
+                call_log_row = log_and_deduct_cost_for_api_request(
                 getattr(request, "organization", None) or request.user.organization,
                 APICallTypeChoices.PROMPT_BENCH.value,
                 config=config,
@@ -3357,7 +3366,9 @@ class PromptTemplateViewSet(BaseModelViewSetMixin, viewsets.ModelViewSet):
                 _org = (
                     getattr(request, "organization", None) or request.user.organization
                 )
-                emit(
+                if emit is not None and UsageEvent is not None and BillingEventType is not None:
+
+                    emit(
                     UsageEvent(
                         org_id=str(_org.id),
                         event_type=BillingEventType.AI_PROMPT_IMPROVEMENT,
