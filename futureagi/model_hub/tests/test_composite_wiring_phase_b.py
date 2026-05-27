@@ -402,7 +402,7 @@ class TestExecuteCompositeChildrenSync:
             {"input": "hello"},
             child,
             organization,
-            model="turing_large",
+            model=None,
             workspace=workspace,
             source="composite_eval",
         )

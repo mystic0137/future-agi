@@ -446,7 +446,12 @@ def run_eval_func(
                     calculate_total_cost,
                 )
 
-                _fallback = calculate_total_cost(model or "unknown", _token_usage)
+                pricing_model = (
+                    model
+                    or getattr(template, "model", None)
+                    or ModelChoices.TURING_LARGE.value
+                )
+                _fallback = calculate_total_cost(pricing_model, _token_usage)
                 _fallback_cost = _fallback.get("total_cost", 0)
                 _pricing_source = _fallback.get("pricing_source", "")
             except Exception:
