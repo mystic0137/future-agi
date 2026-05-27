@@ -108,13 +108,9 @@ def test_missing_attribute_raises(_span_with_attrs, missing_eval_template_id):
 # ───────────────────────────────────────────────────────────────────────────
 
 
+from tfc.utils.case import to_camel_case, to_snake_case  # noqa: E402
 from tracer.models.observation_span import ObservationType  # noqa: E402
-from tracer.utils.eval import (  # noqa: E402
-    _MISSING,
-    _to_camel_case,
-    _to_snake_case,
-    _walk_raw_log,
-)
+from tracer.utils.eval import _MISSING, _walk_raw_log  # noqa: E402
 
 # Vapi-shaped raw_log used by every integration test below. Mirrors the
 # real prod fixture under tracer/tests/fixtures/voice_call_root_span_attrs.json
@@ -169,7 +165,7 @@ def voice_span(_span_with_attrs):
     ],
 )
 def test_to_camel_case(raw, expected):
-    assert _to_camel_case(raw) == expected
+    assert to_camel_case(raw) == expected
 
 
 @pytest.mark.parametrize(
@@ -184,7 +180,7 @@ def test_to_camel_case(raw, expected):
     ],
 )
 def test_to_snake_case(raw, expected):
-    assert _to_snake_case(raw) == expected
+    assert to_snake_case(raw) == expected
 
 
 # ── Direct _walk_raw_log unit tests ───────────────────────────────────────

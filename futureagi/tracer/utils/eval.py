@@ -17,6 +17,7 @@ from model_hub.models.evals_metric import EvalTemplate
 from sdk.utils.helpers import _get_api_call_type
 from tfc.constants.api_calls import APICallStatusChoices
 from tfc.temporal import temporal_activity
+from tfc.utils.case import to_camel_case, to_snake_case
 from tracer.models.custom_eval_config import CustomEvalConfig, EvalOutputType
 from tracer.models.eval_task import EvalTask
 from tracer.models.observation_span import (
@@ -73,22 +74,6 @@ def _walk_dotted_path(root, path):
     return current
 
 
-def _to_camel_case(s: str) -> str:
-    """``end_time`` → ``endTime``. No-op without underscores."""
-    if "_" not in s:
-        return s
-    head, *tail = s.split("_")
-    return head + "".join(p[:1].upper() + p[1:] for p in tail if p)
-
-
-def _to_snake_case(s: str) -> str:
-    """``endTime`` → ``end_time``. No-op without uppercase."""
-    import re
-    if s == s.lower():
-        return s
-    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s).lower()
-
-
 def _walk_raw_log(raw_log: dict, path: str):
     """Walk raw_log with snake_case ↔ camelCase coercion per segment.
 
@@ -114,11 +99,11 @@ def _walk_raw_log(raw_log: dict, path: str):
         if part in current:
             current = current[part]
             continue
-        camel = _to_camel_case(part)
+        camel = to_camel_case(part)
         if camel != part and camel in current:
             current = current[camel]
             continue
-        snake = _to_snake_case(part)
+        snake = to_snake_case(part)
         if snake != part and snake in current:
             current = current[snake]
             continue
