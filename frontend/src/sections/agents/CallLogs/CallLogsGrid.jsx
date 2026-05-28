@@ -360,8 +360,7 @@ const CallLogsGrid = React.forwardRef(function CallLogsGrid(
   const onColumnMoved = useCallback(
     (params) => {
       if (!params.finished || !params.api || typeof onColumnsChange !== "function") return;
-      const newOrder = params.api
-        .getColumnState()
+      const newOrder = (params.api?.getColumnState() ?? [])
         .map((s) => s.colId)
         .filter((id) => id !== APP_CONSTANTS.AG_GRID_SELECTION_COLUMN);
 
