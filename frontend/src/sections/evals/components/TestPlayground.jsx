@@ -20,6 +20,7 @@ import React, {
   useState,
 } from "react";
 import { useSnackbar } from "notistack";
+import { useSearchParams } from "react-router-dom";
 import { CreditExhaustionBanner } from "src/components/CreditExhaustionBanner";
 import Iconify from "src/components/iconify";
 import SvgColor from "src/components/svg-color";
@@ -629,6 +630,8 @@ const TestPlayground = React.forwardRef(
       templateFormat = "mustache",
       functionParamsSchema = null,
       configParamsDesc = null,
+      codeParams: controlledCodeParams = null,
+      onCodeParamsChange,
       code = "",
       codeLanguage = "python",
       isSystemEval = false,
@@ -662,7 +665,25 @@ const TestPlayground = React.forwardRef(
     const [hoveredVersionId, setHoveredVersionId] = useState(null);
     const [menuVersion, setMenuVersion] = useState(null);
     const [selectedVersionId, setSelectedVersionId] = useState(null);
+    const [searchParams] = useSearchParams();
 
+    const urlVersionParam = searchParams.get("v");
+    useEffect(() => {
+      const list = versionsData?.versions || [];
+      if (!list.length) return;
+      if (urlVersionParam) {
+        const match = list.find(
+      ver =>
+            String(ver.version_number ?? ver.versionNumber) ===
+            String(urlVersionParam),
+        );
+        if (match && match.id !== selectedVersionId) {
+          setSelectedVersionId(match.id);
+        }
+      } else if (selectedVersionId) {
+        setSelectedVersionId(null);
+      }
+    }, [urlVersionParam, versionsData]);
     const handleVersionMenuOpen = useCallback((e, version) => {
       e.stopPropagation();
       setVersionMenuAnchor(e.currentTarget);
@@ -798,15 +819,21 @@ const TestPlayground = React.forwardRef(
     }, []);
 
     // Schema-defined params for code evals (from function_params_schema)
-    const [codeParams, setCodeParams] = useState({});
+    const [internalCodeParams, setInternalCodeParams] = useState({});
+    const codeParams =
+      controlledCodeParams && typeof controlledCodeParams === "object"
+        ? controlledCodeParams
+        : internalCodeParams;
     const codeParamsRef = useRef(codeParams);
     useEffect(() => {
       codeParamsRef.current = codeParams;
     }, [codeParams]);
 
     const handleCodeParamChange = useCallback((key, value) => {
-      setCodeParams((prev) => ({ ...prev, [key]: value }));
-    }, []);
+      const next = { ...codeParamsRef.current, [key]: value };
+      setInternalCodeParams(next);
+      onCodeParamsChange?.(next);
+    }, [onCodeParamsChange]);
 
     const visibleFunctionParamEntries = React.useMemo(() => {
       if (!functionParamsSchema) return [];
@@ -827,25 +854,37 @@ const TestPlayground = React.forwardRef(
       Simulation: false,
     });
 
-    const handleDatasetReady = useCallback((isReady) => {
-      setTabReady((prev) =>
-        prev.Dataset === !!isReady ? prev : { ...prev, Dataset: !!isReady },
-      );
-    }, []);
-    const handleTracingReady = useCallback((isReady) => {
-      setTabReady((prev) =>
-        prev.Tracing === !!isReady ? prev : { ...prev, Tracing: !!isReady },
-      );
-    }, []);
-    const handleSimulationReady = useCallback((isReady) => {
-      setTabReady((prev) =>
-        prev.Simulation === !!isReady
-          ? prev
-          : { ...prev, Simulation: !!isReady },
-      );
-    }, []);
-
-    useEffect(() => {
+ 
+    const handleDatasetReady = useCallback(
+      (isReady, mapping) => {
+        setTabReady((prev) =>
+          prev.Dataset === !!isReady ? prev : { ...prev, Dataset: !!isReady },
+        );
+        onReadyChange?.(!!isReady, mapping);
+      },
+      [onReadyChange],
+    );
+    const handleTracingReady = useCallback(
+      (isReady, mapping) => {
+        setTabReady((prev) =>
+          prev.Tracing === !!isReady ? prev : { ...prev, Tracing: !!isReady },
+        );
+        onReadyChange?.(!!isReady, mapping);
+      },
+      [onReadyChange],
+    );
+    const handleSimulationReady = useCallback(
+      (isReady, mapping) => {
+        setTabReady((prev) =>
+          prev.Simulation === !!isReady
+            ? prev
+            : { ...prev, Simulation: !!isReady },
+        );
+        onReadyChange?.(!!isReady, mapping);
+      },
+      [onReadyChange],
+    );
+  useEffect(() => {
       if (!onReadyChange) return;
       onReadyChange(!!tabReady[activeTab]);
     }, [activeTab, tabReady, onReadyChange]);
@@ -1625,7 +1664,7 @@ const TestPlayground = React.forwardRef(
                                 fontWeight: 600,
                                 fontFamily: "'IBM Plex Sans', sans-serif",
                                 color: isSelected
-                                  ? "common.white"
+                                  ? "primary.contrastText"
                                   : isDefault
                                     ? "info.main"
                                     : "text.primary",
@@ -1871,6 +1910,8 @@ TestPlayground.propTypes = {
   model: PropTypes.string,
   functionParamsSchema: PropTypes.object,
   configParamsDesc: PropTypes.object,
+  codeParams: PropTypes.object,
+  onCodeParamsChange: PropTypes.func,
   code: PropTypes.string,
   codeLanguage: PropTypes.string,
   onReadyChange: PropTypes.func,
