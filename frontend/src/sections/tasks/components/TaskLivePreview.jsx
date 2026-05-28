@@ -1045,14 +1045,23 @@ const RowDetailTable = ({
                   "&:hover": { backgroundColor: "action.hover" },
                 }}
               >
-                <Typography
-                  variant="caption"
-                  fontWeight={500}
-                  noWrap
-                  sx={{ width: 130, flexShrink: 0, pt: 0.25 }}
+                <CustomTooltip
+                  title={key}
+                  show
+                  type="default"
+                  placement="top-start"
+                  arrow
+                  size="small"
                 >
-                  {key}
-                </Typography>
+                  <Typography
+                    variant="caption"
+                    fontWeight={500}
+                    noWrap
+                    sx={{ width: 130, flexShrink: 0, pt: 0.25 }}
+                  >
+                    {key}
+                  </Typography>
+                </CustomTooltip>
                 <Box sx={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                   {isEmpty ? (
                     <Typography variant="caption" color="text.disabled">
