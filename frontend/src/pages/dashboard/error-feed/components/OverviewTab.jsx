@@ -3,12 +3,9 @@ import ApexCharts from "apexcharts";
 import { format } from "date-fns";
 import {
   Box,
-  Button,
   Chip,
-  IconButton,
   Skeleton,
   Stack,
-  Tooltip,
   Typography,
   alpha,
   useTheme,
@@ -1961,5 +1958,6 @@ OverviewTab.propTypes = {
   _error: PropTypes.shape({
     clusterId: PropTypes.string,
     source: PropTypes.string,
+    projectId: PropTypes.string,
   }),
 };
