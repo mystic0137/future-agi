@@ -1883,6 +1883,33 @@ class TestTraceListQueryBuilder:
         assert params["offset"] == 75  # 3 * 25
         assert params["limit"] == 26  # 25 + 1 for has_more detection
 
+    def test_build_user_id_query(self):
+        """build_user_id_query() should use enduser_dict for single-query lookup."""
+        from tracer.services.clickhouse.query_builders import TraceListQueryBuilder
+
+        builder = TraceListQueryBuilder(project_id="test-proj-123")
+        trace_ids = ["trace-1", "trace-2", "trace-3"]
+
+        query, params = builder.build_user_id_query(trace_ids)
+
+        assert "SELECT" in query
+        assert "trace_id" in query
+        assert "dictGetOrDefault('enduser_dict', 'user_id', end_user_id, '')" in query
+        assert "GROUP BY trace_id" in query
+        assert "PREWHERE trace_id IN" in query
+        assert params["user_trace_ids"] == ("trace-1", "trace-2", "trace-3")
+        assert params["project_id"] == "test-proj-123"
+
+    def test_build_user_id_query_empty_trace_ids(self):
+        """build_user_id_query() should return empty when no trace_ids provided."""
+        from tracer.services.clickhouse.query_builders import TraceListQueryBuilder
+
+        builder = TraceListQueryBuilder(project_id="test-proj-123")
+        query, params = builder.build_user_id_query([])
+
+        assert query == ""
+        assert params == {}
+
 
 @pytest.mark.unit
 class TestSessionListQueryBuilder:
