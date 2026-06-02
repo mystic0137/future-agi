@@ -9,18 +9,17 @@ import {
   Slide,
 } from "@mui/material";
 import PropTypes from "prop-types";
-import PricingDialog from "./UpgradeNowModal";
 import Iconify from "../iconify";
 import { useNavigate } from "react-router";
 import { useSocket } from "src/hooks/use-socket";
 import { ShowComponent } from "../show";
 import logger from "src/utils/logger";
+import { paths } from "src/routes/paths";
 
 const UploadLimitNotification = () => {
   const { socket } = useSocket();
   const [showRateLimiter, setShowRateLimiter] = useState(false);
   const [alertData, setAlertData] = useState(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -80,20 +79,10 @@ const UploadLimitNotification = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [window.location.pathname]);
 
-  const handleOpenDialog = useCallback(() => {
-    setDialogOpen(true);
-    setShowRateLimiter(false);
-  }, []);
-
-  const handleCloseDialog = useCallback(() => {
-    setDialogOpen(false);
-    setShowRateLimiter(false);
-  }, []);
-
   const handleUpgrade = useCallback(() => {
-    navigate("/dashboard/settings/pricing");
-    handleCloseDialog();
-  }, [navigate, handleCloseDialog]);
+    setShowRateLimiter(false);
+    navigate(paths.dashboard.settings.pricing);
+  }, [navigate]);
 
   return (
     <>
@@ -177,7 +166,7 @@ const UploadLimitNotification = () => {
               </Typography>
               <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
                 <Typography
-                  onClick={handleOpenDialog}
+                  onClick={handleUpgrade}
                   sx={{
                     textDecoration: "underline",
                     fontSize: "14px",
@@ -193,13 +182,6 @@ const UploadLimitNotification = () => {
           </Alert>
         </Slide>
       </ShowComponent>
-      <PricingDialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        onUpgradeToBusiness={handleUpgrade}
-        title={alertData?.subscription_title}
-        description={alertData?.subscription_description}
-      />
     </>
   );
 };
