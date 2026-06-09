@@ -159,7 +159,11 @@ def parsing_evaltask_filters(filters: dict) -> tuple[Q, dict]:
     for key, value in filters.items():
         if key in ("filters", "span_attributes_filters") and isinstance(value, list):
             if key == "span_attributes_filters":
-                logger.info("eval_task_filter_legacy_key")
+                logger.error(
+                    "Eval task still uses the legacy "
+                    "`span_attributes_filters` key; re-save the task to "
+                    "migrate it to the canonical `filters` key."
+                )
 
             items = value
             if not items:
